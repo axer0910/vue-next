@@ -58,7 +58,7 @@ export interface FunctionalComponent<P = {}> extends SFCInternalOptions {
   displayName?: string
 }
 
-export type Component = ComponentOptions | FunctionalComponent
+export type Component = ComponentOptions | FunctionalComponent // 组件配置对象（函数式setup()和传统option式定义）
 
 // A type used in public APIs where a component type is expected.
 // The constructor type is an artificial type returned by defineComponent().
@@ -330,8 +330,10 @@ function setupStatefulComponent(
     }
   }
   // 0. create render proxy property access cache
+  // 设置内部实例cache
   instance.accessCache = {}
   // 1. create public instance / render proxy
+  // 设置内部实例proxy对象
   instance.proxy = new Proxy(instance, PublicInstanceProxyHandlers)
   // 2. create props proxy
   // the propsProxy is a reactive AND readonly proxy to the actual props.
@@ -340,6 +342,8 @@ function setupStatefulComponent(
     ? instance.props
     : shallowReadonly(instance.props))
   // 3. call setup()
+  // 调用setup函数进行初始化
+  // 设置setup函数上下文
   const { setup } = Component
   if (setup) {
     const setupContext = (instance.setupContext =
@@ -375,9 +379,12 @@ function setupStatefulComponent(
         )
       }
     } else {
+      // setup result可能是render函数（如果返回的是jsx）
+      // 或者是响应式对象，供template使用
       handleSetupResult(instance, setupResult, parentSuspense)
     }
   } else {
+    // 没有setup函数直接调用完成setup
     finishComponentSetup(instance, parentSuspense)
   }
 }
@@ -387,10 +394,12 @@ export function handleSetupResult(
   setupResult: unknown,
   parentSuspense: SuspenseBoundary | null
 ) {
+  console.warn('setup result', setupResult)
   if (isFunction(setupResult)) {
     // setup returned an inline render function
     instance.render = setupResult as RenderFunction
   } else if (isObject(setupResult)) {
+    // setup函数不能返回vnode函数
     if (__DEV__ && isVNode(setupResult)) {
       warn(
         `setup() should not return VNodes directly - ` +
@@ -399,6 +408,7 @@ export function handleSetupResult(
     }
     // setup returned bindings.
     // assuming a render function compiled from template is present.
+    // 这类假设模板已编译，将需要响应的对象放入renderContext
     instance.renderContext = reactive(setupResult)
   } else if (__DEV__ && setupResult !== undefined) {
     warn(
@@ -418,10 +428,13 @@ type CompileFunction = (
 let compile: CompileFunction | undefined
 
 // exported method uses any to avoid d.ts relying on the compiler types.
+// 这个函数就是vue入口文件引入的模板编译器
 export function registerRuntimeCompiler(_compile: any) {
   compile = _compile
 }
 
+// 完成setup调用
+// 如果没有render函数，则尝试编译template模板
 function finishComponentSetup(
   instance: ComponentInternalInstance,
   parentSuspense: SuspenseBoundary | null
@@ -454,7 +467,9 @@ function finishComponentSetup(
       }
     }
 
+    // 设置instance上到render函数
     instance.render = (Component.render || NOOP) as RenderFunction
+    console.log('render is', instance.render)
 
     // for runtime-compiled render functions using `with` blocks, the render
     // proxy used needs a different `has` handler which is more performant and
@@ -475,6 +490,15 @@ function finishComponentSetup(
     currentInstance = null
     currentSuspense = null
   }
+  if (instance.renderContext === EMPTY_OBJ) {
+    instance.renderContext = {}
+  }
+  // 到这里为止组件初始化过程完成
+  // 主要做了这么几件事情
+  // 设置proxy的cache
+  // 设置proxy 的handler
+  // 根据是模板编译还是jsx确定render函数
+  // 这里运行完以后交给setupEffect设置响应式系统并继续解析子组件或者dom
 }
 
 // used to identify a setup context proxy

@@ -54,10 +54,10 @@ export function reactive(target: object) {
     return target
   }
   return createReactiveObject(
-    target,
-    rawToReactive,
-    reactiveToRaw,
-    mutableHandlers,
+    target, // 普通对象
+    rawToReactive, // 原始对象转换到reactive
+    reactiveToRaw, // reactive转化到原始对象
+    mutableHandlers, // proxy用来进行mutable的handlers
     mutableCollectionHandlers
   )
 }
@@ -108,6 +108,7 @@ export function shallowReactive<T extends object>(target: T): T {
   )
 }
 
+// 创建响应式对象
 function createReactiveObject(
   target: unknown,
   toProxy: WeakMap<any, any>,
@@ -137,6 +138,7 @@ function createReactiveObject(
   const handlers = collectionTypes.has(target.constructor)
     ? collectionHandlers
     : baseHandlers
+  console.log('reactive handlers is', handlers)
   observed = new Proxy(target, handlers)
   toProxy.set(target, observed)
   toRaw.set(observed, target)

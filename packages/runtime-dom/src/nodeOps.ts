@@ -7,6 +7,7 @@ let tempContainer: HTMLElement
 let tempSVGContainer: SVGElement
 
 export const nodeOps: Omit<RendererOptions<Node, Element>, 'patchProp'> = {
+  // dom插入，就是调用appendChild插入新元素
   insert: (child, parent, anchor) => {
     if (anchor != null) {
       parent.insertBefore(child, anchor)

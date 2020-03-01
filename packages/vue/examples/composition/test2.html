@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<script src="../../dist/vue.global.js"></script>
+<head>
+  <meta charset="UTF-8">
+  <title>Title</title>
+</head>
+<body>
+<div id="app">
+</div>
+</body>
+
+</html>
+<script>
+  const { createApp, ref, watchEffect, h, reactive } = Vue
+  createApp({
+    setup() {
+      // 改变ref的value是怎么重新通知render渲染（变量和h建立绑定关系）
+      // todo internal instance里面next作用?
+      // todo 虚拟dom patch更新的过程
+      // todo computed，watch几个hook更新的过程
+      // reactive方法实际上就是设置一个get方法和set方法返回一个proxy
+      // 调有变量调用get方法时，get函数会调用track方法增加订阅同时返回原本的值（同ref函数做的事情）
+      // set方法会先取出当前值同时调用trigger调用deps里面的effect更新视图
+      // 这个过程是lazy的，也就是说用到这个变量会去增加订阅，改变这个变量就去更新视图
+      const reactiveObj = reactive({
+        val1: 'my val1',
+        val2: 'my val2'
+      })
+      console.log('reactiveObj is', reactiveObj);
+      setTimeout(() => {
+        console.log(reactiveObj.val2)
+      }, 2000);
+
+      return () => {
+        return h('div', {
+          class: ['foo', 'bar'],
+          style: { margin: '10px' },
+          id: 'foo'
+        }, reactiveObj.val1 + reactiveObj.val2)
+      }
+    }
+  }).mount('#app')
+</script>

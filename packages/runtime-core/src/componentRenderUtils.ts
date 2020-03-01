@@ -34,6 +34,7 @@ export function markAttrsAccessed() {
   accessedAttrs = true
 }
 
+// 解析初始化完毕的根组件,返回vnode
 export function renderComponentRoot(
   instance: ComponentInternalInstance
 ): VNode {
@@ -61,9 +62,15 @@ export function renderComponentRoot(
       // withProxy is a proxy with a diffrent `has` trap only for
       // runtime-compiled render functions using `with` block.
       const proxyToUse = withProxy || proxy
+      // 将proxy设置为上下文并调用render函数
+      // 这里暂时不看render函数的编译过程（单独的一个模块）
+      // 假定render已经被生成并且可以调用createVNode创建vnode
+      console.log('before call render', instance.render)
       result = normalizeVNode(
         instance.render!.call(proxyToUse, proxyToUse, renderCache)
       )
+      // 如果normalizeVNode传入的是空会返回一个Comment
+      console.log('render res', result)
     } else {
       // functional
       const render = Component as FunctionalComponent
@@ -104,7 +111,6 @@ export function renderComponentRoot(
         )
       }
     }
-
     // inherit vnode hooks
     if (vnodeHooks !== EMPTY_OBJ) {
       result = cloneVNode(result, vnodeHooks)
@@ -139,7 +145,7 @@ export function renderComponentRoot(
     result = createVNode(Comment)
   }
   currentRenderingInstance = null
-
+  console.log('res', result)
   return result
 }
 

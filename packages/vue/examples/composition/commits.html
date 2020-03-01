@@ -46,6 +46,10 @@ createApp({
         })
     })
 
+    setTimeout(() => {
+      currentBranch.value = 'ssr';
+    }, 2000);
+
     return {
       branches: ['master', 'sync'],
       currentBranch,

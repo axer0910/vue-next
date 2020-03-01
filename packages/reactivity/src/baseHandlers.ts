@@ -19,6 +19,8 @@ const shallowReadonlyGet = /*#__PURE__*/ createGetter(true, true)
 const arrayInstrumentations: Record<string, Function> = {}
 ;['includes', 'indexOf', 'lastIndexOf'].forEach(key => {
   arrayInstrumentations[key] = function(...args: any[]): any {
+    console.log(this)
+    debugger
     const arr = toRaw(this) as any
     for (let i = 0, l = (this as any).length; i < l; i++) {
       track(arr, TrackOpTypes.GET, i + '')
@@ -27,9 +29,13 @@ const arrayInstrumentations: Record<string, Function> = {}
   }
 })
 
+// 创建proxy对象的getter
 function createGetter(isReadonly = false, shallow = false) {
   return function get(target: object, key: string | symbol, receiver: object) {
+    // 当target是数组
+    // 如果target有用户自定义的对象（不在原型链上）
     if (isArray(target) && hasOwn(arrayInstrumentations, key)) {
+      // 相当于arrayInstrumentations[key],receiver相当于this
       return Reflect.get(arrayInstrumentations, key, receiver)
     }
     const res = Reflect.get(target, key, receiver)
@@ -94,6 +100,8 @@ function createSetter(isReadonly = false, shallow = false) {
     // don't trigger if target is something up in the prototype chain of original
     if (target === toRaw(receiver)) {
       if (!hadKey) {
+        // 新增一个属性
+        // 这里相比vue2.x，可以监听到对象上属性的增加从而不用再调用this.$set之类的方法设置响应式
         trigger(target, TriggerOpTypes.ADD, key, value)
       } else if (hasChanged(value, oldValue)) {
         trigger(target, TriggerOpTypes.SET, key, value, oldValue)
@@ -125,8 +133,8 @@ function ownKeys(target: object): (string | number | symbol)[] {
 }
 
 export const mutableHandlers: ProxyHandler<object> = {
-  get,
-  set,
+  get, // 调用createGetter
+  set, // 调用createSetter
   deleteProperty,
   has,
   ownKeys

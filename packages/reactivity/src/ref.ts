@@ -40,6 +40,7 @@ export function shallowRef(value?: unknown) {
   return createRef(value, true)
 }
 
+// 创建响应式字面量
 function createRef(value: unknown, shallow = false) {
   if (isRef(value)) {
     return value
@@ -50,11 +51,14 @@ function createRef(value: unknown, shallow = false) {
   const r = {
     _isRef: true,
     get value() {
+      // 添加一个依赖
       track(r, TrackOpTypes.GET, 'value')
       return value
     },
     set value(newVal) {
+      // 如果ref是一个对象，那么装换为reactive创建响应式对象
       value = shallow ? newVal : convert(newVal)
+      // 更新订阅这个变量的依赖项
       trigger(
         r,
         TriggerOpTypes.SET,
@@ -63,6 +67,7 @@ function createRef(value: unknown, shallow = false) {
       )
     }
   }
+  // 包裹一个对象，返回一个getter和setter
   return r
 }
 

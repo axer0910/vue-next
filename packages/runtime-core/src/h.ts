@@ -77,6 +77,10 @@ interface Constructor<P = any> {
 // manually written render functions.
 
 // element
+// 创建一个元素，第一个传入字符串(div, h, p标签...或者组件名)
+// 第二个是节点属性（dom元素属性，组件属性...）
+// 第三个是子节点，可以是响应式对象，或者是子组件，元素...
+// children就是vnode子节点
 export function h(type: string, children?: RawChildren): VNode
 export function h(
   type: string,
@@ -139,6 +143,8 @@ export function h<P>(
 ): VNode
 
 // Actual implementation
+// 上面的h都是各种情况的定义
+// 实际上h就是createVNode的别名
 export function h(type: any, propsOrChildren?: any, children?: any): VNode {
   if (arguments.length === 2) {
     if (isObject(propsOrChildren) && !isArray(propsOrChildren)) {

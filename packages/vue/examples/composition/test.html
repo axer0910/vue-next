@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<script src="../../dist/vue.global.js"></script>
+<head>
+  <meta charset="UTF-8">
+  <title>Title</title>
+</head>
+<body>
+  <div id="app">
+  </div>
+</body>
+
+</html>
+<script>
+  const { createApp, ref, watchEffect, h } = Vue
+  createApp({
+    setup() {
+      // 改变ref的value是怎么重新通知render渲染（变量和h建立绑定关系）
+      // todo internal instance里面next作用?
+      // todo 虚拟dom patch更新的过程
+      // todo computed，watch几个hook更新的过程
+      // todo reactive对象
+      const helloval = ref('hello vue next')
+      console.log('hello val is', helloval);
+      // setTimeout(() => {
+      //   helloval.value = 'after 2000';
+      // }, 2000);
+
+      // 大致的响应式依赖订阅过程
+      // 调用setup的时候，如果有ref，reactive此类函数，先建立空的deps并且返回为可相应对象
+      // 最后将返回的render（模板的话就是编译后的）保存在内部instance上
+      // 完成调用setup后，将会setup响应式回调（setupRenderEffect）生成一个组件的effect，并且把这个effect设置为activeEffect
+      // 这里的effect主要有两个操作，如果组件没有mount，那么调用renderComponentRoot函数调用render函数
+      // 调用render函数生成vnode的过程中如果获取的变量是响应式的（有getter），那么将当前的activeEffect添加到这个变量的deps中
+      // 组件如果mount了以后，对这个变量进行修改会触发trigger，trigger将deps里的effect进行调用，里面的effect一定包含初始设置的activeEffect，将调用这个effect进行dom更新
+
+      return () => {
+        return h('div', {
+          class: ['foo', 'bar'],
+          style: { margin: '10px' },
+          id: 'foo'
+        }, helloval.value)
+      }
+    }
+  }).mount('#app')
+</script>

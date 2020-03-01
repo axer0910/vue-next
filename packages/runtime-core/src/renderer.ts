@@ -64,6 +64,7 @@ import { KeepAliveSink, isKeepAlive } from './components/KeepAlive'
 import { registerHMR, unregisterHMR } from './hmr'
 import { ErrorCodes, callWithErrorHandling } from './errorHandling'
 import { createHydrationFunctions, RootHydrateFunction } from './hydration'
+import { activeEffect } from '@vue/reactivity/src/effect'
 
 const __HMR__ = __BUNDLER__ && __DEV__
 
@@ -333,6 +334,8 @@ function baseCreateRenderer<
 
   // Note: functions inside this closure should use `const xxx = () => {}`
   // style in order to prevent being inlined by minifiers.
+  // 将VNode解析并插入到dom中，根据不同的type情况进行处理
+  // n1不是vnode对象一般是null（为啥）
   const patch: PatchFn<HostNode, HostElement> = (
     n1,
     n2,
@@ -351,6 +354,7 @@ function baseCreateRenderer<
     }
 
     const { type, shapeFlag } = n2
+    console.log('type and shape flag', type, shapeFlag)
     switch (type) {
       case Text:
         processText(n1, n2, container, anchor)
@@ -388,9 +392,13 @@ function baseCreateRenderer<
             optimized
           )
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
+          // 这里COMPONENT是ShapeFlags.STATEFUL_COMPONENT | ShapeFlags.FUNCTIONAL_COMPONENT联合类型
+          // js里面使用与运算判断类型
+          // 开始处理组件渲染
+          // 会递归地调用patch函数渲染子组件或者元素，直到完成
           processComponent(
-            n1,
-            n2,
+            n1, // null
+            n2, // 含有Component选项的vnode
             container,
             anchor,
             parentComponent,
@@ -428,6 +436,8 @@ function baseCreateRenderer<
     }
   }
 
+  // 处理文字节点
+  // n2shi target componet
   const processText: ProcessTextOrCommentFn<HostNode, HostElement> = (
     n1,
     n2,
@@ -926,6 +936,7 @@ function baseCreateRenderer<
     optimized: boolean
   ) => {
     if (n1 == null) {
+      // keepAlive情况
       if (n2.shapeFlag & ShapeFlags.COMPONENT_KEPT_ALIVE) {
         ;(parentComponent!.sink as KeepAliveSink).activate(
           n2,
@@ -933,6 +944,7 @@ function baseCreateRenderer<
           anchor
         )
       } else {
+        // mount组件
         mountComponent(
           n2,
           container,
@@ -943,7 +955,7 @@ function baseCreateRenderer<
         )
       }
     } else {
-      const instance = (n2.component = n1.component)!
+      const instance = (n2.component = n1.component)! // 断言
 
       if (shouldUpdateComponent(n1, n2, parentComponent, optimized)) {
         if (
@@ -989,6 +1001,7 @@ function baseCreateRenderer<
     }
   }
 
+  // 挂载组件，第一个参数是还未初始化完毕的vnode对象，包含了配置选项（setup函数等...）
   const mountComponent: MountComponentFn<HostNode, HostElement> = (
     initialVNode,
     container, // only null during hydration
@@ -1018,8 +1031,9 @@ function baseCreateRenderer<
     }
 
     // resolve props and slots for setup context
+    // 调用setup函数
     setupComponent(instance, parentSuspense)
-
+    console.log('after setupComponent')
     // setup() is async. This component relies on async logic to be resolved
     // before proceeding
     if (__FEATURE_SUSPENSE__ && instance.asyncDep) {
@@ -1037,6 +1051,7 @@ function baseCreateRenderer<
       return
     }
 
+    // 组件设置响应式回调
     setupRenderEffect(
       instance,
       initialVNode,
@@ -1060,8 +1075,15 @@ function baseCreateRenderer<
     isSVG
   ) => {
     // create reactive effect for rendering
+    // 创建相应式回调，依赖收集器，并且立即执行（如果没有传入lazy选项）
+    // 并且放入update中，如果有依赖更新了调用update函数
+    // 由哪些操作可以导致update被调用？
     instance.update = effect(function componentEffect() {
       if (!instance.isMounted) {
+        // renderComponentRoot将会调用组件render
+        // 调用render期间有依赖响应式对象则会建立依赖关系
+        // 并且activeEffect指向这个函数
+        // 创建相应式变量的时候会将activeEffect加入到deps
         const subTree = (instance.subTree = renderComponentRoot(instance))
         // beforeMount hook
         if (instance.bm !== null) {
@@ -1071,6 +1093,8 @@ function baseCreateRenderer<
           // vnode has adopted host node - perform hydration instead of mount.
           hydrateNode(initialVNode.el as Node, subTree, instance)
         } else {
+          // 组件还没有被mount，进行第一次patch
+          console.log('run first patch')
           patch(
             null,
             subTree,
@@ -1083,10 +1107,12 @@ function baseCreateRenderer<
           initialVNode.el = subTree.el
         }
         // mounted hook
+        // 调用mounted函数
         if (instance.m !== null) {
           queuePostRenderEffect(instance.m, parentSuspense)
         }
         // activated hook for keep-alive roots.
+        // 调用activated函数
         if (
           instance.a !== null &&
           instance.vnode.shapeFlag & ShapeFlags.COMPONENT_SHOULD_KEEP_ALIVE
@@ -1095,9 +1121,11 @@ function baseCreateRenderer<
         }
         instance.isMounted = true
       } else {
+        // 组件已被初始化，修改响应式对象后调用effect进行更新
         // updateComponent
         // This is triggered by mutation of component's own state (next: null)
         // OR parent calling processComponent (next: HostVNode)
+        console.log('run update component')
         const { next } = instance
 
         if (__DEV__) {
@@ -1147,10 +1175,11 @@ function baseCreateRenderer<
         }
       }
     }, __DEV__ ? createDevEffectOptions(instance) : prodEffectOptions)
+    console.log('after set update ', activeEffect)
   }
 
   const updateComponentPreRender = (
-    instance: ComponentInternalInstance,
+    instance: ComponentInternalInstance, // contain ComponentOptions
     nextVNode: HostVNode
   ) => {
     nextVNode.component = instance
@@ -1829,15 +1858,19 @@ function baseCreateRenderer<
 
   type HostRootElement = HostElement & { _vnode: HostVNode | null }
 
+  // 渲染vnode
   const render: RootRenderFunction<HostNode, HostElement> = (
-    vnode,
-    container: HostRootElement
+    vnode, // 要解析的vnode
+    container: HostRootElement // 解析完最终要插入的节点
   ) => {
     if (vnode == null) {
       if (container._vnode) {
         unmount(container._vnode, null, null, true)
       }
     } else {
+      // 应用解析vnode
+      // 首次进入渲染流程的时候container是div dom元素
+      // 没有_vnode元素
       patch(container._vnode || null, vnode, container)
     }
     flushPostFlushCbs()

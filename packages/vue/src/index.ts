@@ -65,12 +65,14 @@ function compileToFunction(
   const render = (__GLOBAL__
     ? new Function(code)()
     : new Function('Vue', code)(runtimeDom)) as RenderFunction
+  // compileCache的key是模板字符串
   return (compileCache[key] = render)
 }
 
+// 注册运行时编译器
 registerRuntimeCompiler(compileToFunction)
 
 export { compileToFunction as compile }
-export * from '@vue/runtime-dom'
+export * from '@vue/runtime-dom' // 从这里导出createApp创建应用函数
 
 import './devCheck'

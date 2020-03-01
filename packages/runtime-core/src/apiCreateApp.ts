@@ -96,6 +96,8 @@ export function createAppAPI<HostNode, HostElement>(
   hydrate?: (vnode: VNode, container: Element) => void
 ): CreateAppFunction<HostElement> {
   return function createApp(rootComponent: Component, rootProps = null) {
+    // 第一个rootComponent就是用户编写的组件配置（template配置，setup()或者传统的mounted()等）
+    // 第二个就是组件props配置
     if (rootProps != null && !isObject(rootProps)) {
       __DEV__ && warn(`root props passed to app.mount() must be an object.`)
       rootProps = null
@@ -124,6 +126,7 @@ export function createAppAPI<HostNode, HostElement>(
         }
       },
 
+      // 插件安装
       use(plugin: Plugin, ...options: any[]) {
         if (installedPlugins.has(plugin)) {
           __DEV__ && warn(`Plugin has already been applied to target app.`)
@@ -142,6 +145,7 @@ export function createAppAPI<HostNode, HostElement>(
         return app
       },
 
+      // 传统的mixin
       mixin(mixin: ComponentOptions) {
         if (__FEATURE_OPTIONS__) {
           if (!context.mixins.includes(mixin)) {
@@ -158,6 +162,7 @@ export function createAppAPI<HostNode, HostElement>(
         return app
       },
 
+      // 组件注册
       component(name: string, component?: PublicAPIComponent): any {
         if (__DEV__) {
           validateComponentName(name, context.config)
@@ -172,6 +177,7 @@ export function createAppAPI<HostNode, HostElement>(
         return app
       },
 
+      // 注册指令
       directive(name: string, directive?: Directive) {
         if (__DEV__) {
           validateDirectiveName(name)
@@ -187,8 +193,13 @@ export function createAppAPI<HostNode, HostElement>(
         return app
       },
 
+      // 挂载组件
+      // 将模板代码进行编译，component选项转成VNode后调用render进行渲染
+      // 实际上这个时候vnode里面包含着组件创建选项(Component对象)
       mount(rootContainer: HostElement, isHydrate?: boolean): any {
         if (!isMounted) {
+          // 这里的vnode包含着选项配置，模板字符串等初始信息
+          // 后面才进行初始化
           const vnode = createVNode(rootComponent, rootProps)
           // store app context on the root VNode.
           // this will be set on the root instance on initial mount.
@@ -204,6 +215,8 @@ export function createAppAPI<HostNode, HostElement>(
           if (isHydrate && hydrate) {
             hydrate(vnode, rootContainer as any)
           } else {
+            // 将含有模板信息和配置的vnode进行渲染
+            // 此时还没解析模板
             render(vnode, rootContainer)
           }
           isMounted = true

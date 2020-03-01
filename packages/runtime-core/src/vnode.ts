@@ -202,8 +202,9 @@ export function isSameVNodeType(n1: VNode, n2: VNode): boolean {
   return n1.type === n2.type && n1.key === n2.key
 }
 
+// h函数(h.ts)实际上就是createVNode的别名（符合jsx标准），提供各种情况的重载
 export function createVNode(
-  type: VNodeTypes,
+  type: VNodeTypes, // 一般情况下是字符串，也可以是组件选项对象
   props: (Data & VNodeProps) | null = null,
   children: unknown = null,
   patchFlag: number = 0,
@@ -213,7 +214,7 @@ export function createVNode(
     warn(`Invalid vnode type when creating vnode: ${type}.`)
     type = Comment
   }
-
+  console.warn('createVNode', type, props, children)
   // class & style normalization.
   if (props !== null) {
     // for reactive or proxy objects, we need to clone it to enable mutation.
@@ -242,14 +243,14 @@ export function createVNode(
       : isPortal(type)
         ? ShapeFlags.PORTAL
         : isObject(type)
-          ? ShapeFlags.STATEFUL_COMPONENT
+          ? ShapeFlags.STATEFUL_COMPONENT // STATEFUL_COMPONENT就是对象创建组件
           : isFunction(type)
             ? ShapeFlags.FUNCTIONAL_COMPONENT
             : 0
-
+  console.log('shape flag is', shapeFlag)
   const vnode: VNode = {
     _isVNode: true,
-    type,
+    type, // 这里type第一次进入挂载根节点的时候是Component对象
     props,
     key: (props !== null && props.key) || null,
     ref: (props !== null && props.ref) || null,
@@ -269,7 +270,8 @@ export function createVNode(
     appContext: null
   }
 
-  normalizeChildren(vnode, children)
+  normalizeChildren(vnode, children) // string 1变成了9(1 | 8)
+  console.log('after normalize', vnode)
 
   // presence of a patch flag indicates this node needs patching on updates.
   // component nodes also should always be patched, because even if the
@@ -371,13 +373,16 @@ export function cloneIfMounted(child: VNode): VNode {
   return child.el === null ? child : cloneVNode(child)
 }
 
+// 设置children的type
 export function normalizeChildren(vnode: VNode, children: unknown) {
+  console.log('run normalizeChildren', vnode)
   let type = 0
   if (children == null) {
     children = null
   } else if (isArray(children)) {
     type = ShapeFlags.ARRAY_CHILDREN
   } else if (typeof children === 'object') {
+    // 可以是响应式对象
     type = ShapeFlags.SLOTS_CHILDREN
   } else if (isFunction(children)) {
     children = { default: children }
@@ -387,6 +392,7 @@ export function normalizeChildren(vnode: VNode, children: unknown) {
     type = ShapeFlags.TEXT_CHILDREN
   }
   vnode.children = children as VNodeNormalizedChildren
+  console.log('vnode.shapeFlag |= type', vnode.shapeFlag, type)
   vnode.shapeFlag |= type
 }
 

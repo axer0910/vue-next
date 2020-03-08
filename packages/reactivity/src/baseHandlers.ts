@@ -19,8 +19,6 @@ const shallowReadonlyGet = /*#__PURE__*/ createGetter(true, true)
 const arrayInstrumentations: Record<string, Function> = {}
 ;['includes', 'indexOf', 'lastIndexOf'].forEach(key => {
   arrayInstrumentations[key] = function(...args: any[]): any {
-    console.log(this)
-    debugger
     const arr = toRaw(this) as any
     for (let i = 0, l = (this as any).length; i < l; i++) {
       track(arr, TrackOpTypes.GET, i + '')

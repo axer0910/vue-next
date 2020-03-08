@@ -381,6 +381,7 @@ function baseCreateRenderer<
         break
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
+          // 这里面有diff的过程
           processElement(
             n1,
             n2,
@@ -397,8 +398,8 @@ function baseCreateRenderer<
           // 开始处理组件渲染
           // 会递归地调用patch函数渲染子组件或者元素，直到完成
           processComponent(
-            n1, // null
-            n2, // 含有Component选项的vnode
+            n1, // 前一个vnode状态
+            n2, // 后一个vnode状态
             container,
             anchor,
             parentComponent,
@@ -926,8 +927,8 @@ function baseCreateRenderer<
   }
 
   const processComponent = (
-    n1: HostVNode | null,
-    n2: HostVNode,
+    n1: HostVNode | null, // n1是
+    n2: HostVNode, // n2是当前组件
     container: HostElement,
     anchor: HostNode | null,
     parentComponent: ComponentInternalInstance | null,
@@ -955,8 +956,12 @@ function baseCreateRenderer<
         )
       }
     } else {
-      const instance = (n2.component = n1.component)! // 断言
+      // n1是组件的前一个状态
+      // n2是组件当前状态
+      // 更新的时候会对比n2和n1的状态是否一致
+      const instance = (n2.component = n1.component)! // instance都更新为同一个
 
+      // 判断是否应该进行更新
       if (shouldUpdateComponent(n1, n2, parentComponent, optimized)) {
         if (
           __FEATURE_SUSPENSE__ &&
@@ -980,7 +985,7 @@ function baseCreateRenderer<
           // double updating the same child component in the same flush.
           invalidateJob(instance.update)
           // instance.update is the reactive effect runner.
-          instance.update()
+          instance.update() // 调用effect回调（renderer.ts中setupRenderEffect）
         }
       } else {
         // no update needed. just copy over properties
@@ -1010,6 +1015,7 @@ function baseCreateRenderer<
     parentSuspense,
     isSVG
   ) => {
+    // 创建内部实例后（ComponentInternalInstance）将vnode的component设为内部实例
     const instance: ComponentInternalInstance = (initialVNode.component = createComponentInstance(
       initialVNode,
       parentComponent
@@ -1033,7 +1039,6 @@ function baseCreateRenderer<
     // resolve props and slots for setup context
     // 调用setup函数
     setupComponent(instance, parentSuspense)
-    console.log('after setupComponent')
     // setup() is async. This component relies on async logic to be resolved
     // before proceeding
     if (__FEATURE_SUSPENSE__ && instance.asyncDep) {
@@ -1094,7 +1099,6 @@ function baseCreateRenderer<
           hydrateNode(initialVNode.el as Node, subTree, instance)
         } else {
           // 组件还没有被mount，进行第一次patch
-          console.log('run first patch')
           patch(
             null,
             subTree,
@@ -1125,19 +1129,23 @@ function baseCreateRenderer<
         // updateComponent
         // This is triggered by mutation of component's own state (next: null)
         // OR parent calling processComponent (next: HostVNode)
-        console.log('run update component')
-        const { next } = instance
+        const { next } = instance // next是新vnode
+        // 如果next是null说明是组件自身的变量修改触发导致的更新
+        // 不是null说明是其他组件的调用
+        console.log('run update component', instance, next)
 
         if (__DEV__) {
           pushWarningContext(next || instance.vnode)
         }
 
         if (next !== null) {
+          // 这个函数作用还不清楚
+          // 这里next的instance同instance？
           updateComponentPreRender(instance, next)
         }
         const nextTree = renderComponentRoot(instance)
         const prevTree = instance.subTree
-        instance.subTree = nextTree
+        instance.subTree = nextTree // 更新subtree
         // beforeUpdate hook
         if (instance.bu !== null) {
           invokeHooks(instance.bu)
@@ -1148,8 +1156,8 @@ function baseCreateRenderer<
           instance.refs = {}
         }
         patch(
-          prevTree,
-          nextTree,
+          prevTree, // 上一次渲染的vnode树
+          nextTree, // 当前更新后渲染的vnode树
           // parent may have changed if it's in a portal
           hostParentNode(prevTree.el as HostNode) as HostElement,
           // anchor may have changed if it's in a fragment

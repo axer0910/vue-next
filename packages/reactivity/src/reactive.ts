@@ -138,7 +138,6 @@ function createReactiveObject(
   const handlers = collectionTypes.has(target.constructor)
     ? collectionHandlers
     : baseHandlers
-  console.log('reactive handlers is', handlers)
   observed = new Proxy(target, handlers)
   toProxy.set(target, observed)
   toRaw.set(observed, target)

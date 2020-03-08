@@ -34,7 +34,7 @@ export function markAttrsAccessed() {
   accessedAttrs = true
 }
 
-// 解析初始化完毕的根组件,返回vnode
+// 传入内部实例，调用render创建vnode并且返回
 export function renderComponentRoot(
   instance: ComponentInternalInstance
 ): VNode {

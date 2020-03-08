@@ -13,23 +13,57 @@
 </html>
 <script>
   const { createApp, ref, watchEffect, h, reactive } = Vue
+
+  const myComp = {
+    name: 'myComp',
+    props: {
+      val: Object,
+      val2: String
+    },
+    setup(props) {
+      console.warn('call setup', props);
+      let selfVal = ref('my val');
+      // setTimeout(() => {
+      //   selfVal.value = 'my val 2';
+      // }, 1000);
+      return () => {
+        return h('div', {
+          class: 'test'
+        }, [
+          h('p', 'self val:' + selfVal.value),
+          h('p', 'inner comp val: ' + JSON.stringify(props.val)),
+          h('p', 'inner val2:' + props.val2.value)
+        ]);
+      }
+    }
+  };
+
   createApp({
     setup() {
       // 改变ref的value是怎么重新通知render渲染（变量和h建立绑定关系）
       // todo internal instance里面next作用?
       // todo 虚拟dom patch更新的过程
       // todo computed，watch几个hook更新的过程
+      // todo emit, prop实现，更新组件过程
       // reactive方法实际上就是设置一个get方法和set方法返回一个proxy
       // 调有变量调用get方法时，get函数会调用track方法增加订阅同时返回原本的值（同ref函数做的事情）
       // set方法会先取出当前值同时调用trigger调用deps里面的effect更新视图
       // 这个过程是lazy的，也就是说用到这个变量会去增加订阅，改变这个变量就去更新视图
-      const reactiveObj = reactive({
+      let reactiveObj = reactive({
         val1: 'my val1',
         val2: 'my val2'
       })
+      let testVal2 = ref('test');
+      let showSecond = ref(false);
       console.log('reactiveObj is', reactiveObj);
       setTimeout(() => {
-        console.log(reactiveObj.val2)
+        // reactiveObj.val2 = 'change'
+        testVal2.value= 'test2';
+        // showSecond.value = true;
+        reactiveObj = reactive({
+          val1: 'my val3',
+          val2: 'my val4'
+        })
       }, 2000);
 
       return () => {
@@ -37,7 +71,19 @@
           class: ['foo', 'bar'],
           style: { margin: '10px' },
           id: 'foo'
-        }, reactiveObj.val1 + reactiveObj.val2)
+        }, [
+          h('div', 'outer comp'),
+          h(myComp, {
+            val: reactiveObj,
+            val2: testVal2
+          }),
+          showSecond.value === true
+          ? h(myComp, {
+            val: reactiveObj,
+            val2: 'second'
+          })
+          : ''
+        ])
       }
     }
   }).mount('#app')
